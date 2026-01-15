@@ -49,41 +49,56 @@ Currently, the package is in `license-protection/` directory. To make it secure:
 }
 ```
 
-### 2. Authenticate with Private Repository
+### 2. Get Repository Access
 
-**For GitHub:**
+**Contact the package developer** to get access to the private repository. You must be added as a collaborator or granted access before you can install.
+
+### 3. Authenticate with Private Repository
+
+**Each user creates their own token** from their own GitHub/GitLab account:
+
+**For GitHub (Fine-Grained Token - Recommended):**
 ```bash
-# Get token from: https://github.com/settings/tokens (scope: repo)
+# 1. Create fine-grained token at: https://github.com/settings/tokens?type=beta
+#    - Select "Only select repositories" and choose license-protection repo only
+#    - Permissions: Contents (Read-only), Metadata (Read-only)
+# 2. Configure Composer:
+composer config --global github-oauth.github.com YOUR_FINE_GRAINED_TOKEN
+```
+
+**For GitHub (Classic Token - Less Secure):**
+```bash
+# ⚠️ Warning: Classic tokens with 'repo' scope access ALL your repositories
+# 1. Create token at: https://github.com/settings/tokens (scope: repo)
+# 2. Configure Composer:
 composer config --global github-oauth.github.com YOUR_GITHUB_TOKEN
 ```
 
 **For GitLab:**
 ```bash
-# Get token from: https://gitlab.com/-/user_settings/personal_access_tokens (scope: read_repository)
+# 1. Create token at: https://gitlab.com/-/user_settings/personal_access_tokens (scope: read_repository)
+# 2. Configure Composer:
 composer config --global gitlab-token.gitlab.com YOUR_GITLAB_TOKEN
 ```
 
 **For Bitbucket:**
 ```bash
-# Get app password from: https://bitbucket.org/account/settings/app-passwords/
+# 1. Create app password at: https://bitbucket.org/account/settings/app-passwords/
+# 2. Configure Composer:
 composer config --global bitbucket-oauth.bitbucket.org USERNAME APP_PASSWORD
 ```
 
 See `AUTHENTICATION_GUIDE.md` for detailed instructions and alternative methods.
 
-### 3. Install via Composer
+### 4. Install via Composer
 
 ```bash
 composer require elite-codec/laravel-license-protection
 ```
 
-### 4. Publish Configuration
-
-```bash
-php artisan vendor:publish --tag=license-config
-```
-
 ### 5. Run Migrations
+
+**Note**: The configuration file is automatically published when the package boots. No manual step needed.
 
 ```bash
 php artisan migrate
@@ -198,6 +213,16 @@ if (!LicenseHelper::check()) {
 // Or assert (will abort if invalid)
 LicenseHelper::assert();
 ```
+
+## License Server Setup
+
+**You need to set up a license validation server** to validate license keys. See:
+
+- `LICENSE_SERVER_SETUP.md` - Complete setup guide
+- `LICENSE_SERVER_LARAVEL.md` - Laravel implementation (recommended)
+- `LICENSE_SERVER_PHP.md` - Simple PHP implementation
+- `LICENSE_SERVER_NODE.md` - Node.js/Express implementation
+- `QUICK_SERVER_SETUP.md` - Quick start guide
 
 ## License Server API
 
