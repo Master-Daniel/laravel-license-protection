@@ -356,4 +356,4 @@ This package is proprietary software. Unauthorized use is prohibited.
 
 ## Support
 
-For support, contact: your@email.com
+For support, contact: engrdanywiss@gmail.com
