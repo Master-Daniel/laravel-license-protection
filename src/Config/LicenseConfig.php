@@ -14,7 +14,7 @@ class LicenseConfig
      * License validation server URL
      * Update this to your actual license server URL
      */
-    protected static $validationServer = 'https://license.elite-codec.com/api';
+    protected static $validationServer = 'https://license-server.elitebot.com.ng/api';
 
     /**
      * Application ID for this package
@@ -27,7 +27,7 @@ class LicenseConfig
      * This should match the secret key on your validation server
      * IMPORTANT: Change this to a strong random string before distribution
      */
-    protected static $secretKey = 'CHANGE_THIS_TO_A_STRONG_RANDOM_STRING_MIN_64_CHARS_LONG';
+    protected static $secretKey = '985d58cef86847462a6dba6fa6977efa7d8240ffdc42e348aabf8e08fd45d06e';
 
     /**
      * Get validation server URL
