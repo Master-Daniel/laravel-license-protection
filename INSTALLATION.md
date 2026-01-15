@@ -2,11 +2,24 @@
 
 This guide is for users who want to install the Laravel License Protection package from a private repository.
 
+## ⚠️ Important: Authentication
+
+**You (the end user) must:**
+- ✅ Get repository access from the package developer
+- ✅ Create your own token from your own GitHub/GitLab account
+- ✅ Configure it yourself
+
+**The package developer does NOT:**
+- ❌ Share their token with you
+- ❌ Give you their credentials
+- ❌ Run commands for you
+
 ## Prerequisites
 
 - Laravel application
 - Composer installed
-- Access to the private Git repository (GitHub/GitLab/Bitbucket)
+- **Repository access** granted by package developer
+- Your own GitHub/GitLab/Bitbucket account
 
 ## Step-by-Step Installation
 
@@ -14,14 +27,32 @@ This guide is for users who want to install the Laravel License Protection packa
 
 You need a Personal Access Token (PAT) to authenticate with the private repository.
 
-#### For GitHub
+#### For GitHub - Fine-Grained Token (Recommended)
+
+1. Go to: https://github.com/settings/tokens?type=beta
+2. Click **"Generate new token"**
+3. Give it a name: "Composer - Laravel License Protection"
+4. Set expiration (recommended)
+5. **Repository access**: Select **"Only select repositories"** and choose only the license-protection repository
+6. **Permissions**:
+   - Repository permissions → Contents: **Read-only**
+   - Repository permissions → Metadata: **Read-only**
+7. Click **"Generate token"**
+8. **Copy the token immediately** (you won't see it again)
+
+**Why Fine-Grained?** Classic tokens with `repo` scope can access ALL your repositories. Fine-grained tokens are repository-specific and more secure.
+
+#### For GitHub - Classic Token (Alternative, Less Secure)
+
+⚠️ **Warning**: Classic tokens with `repo` scope give access to ALL your repositories.
 
 1. Go to: https://github.com/settings/tokens
 2. Click **"Generate new token (classic)"**
 3. Give it a name: "Composer - Laravel License Protection"
 4. Select scope: **`repo`** (full control of private repositories)
-5. Click **"Generate token"**
-6. **Copy the token immediately** (you won't see it again)
+5. ⚠️ **Note**: This token can access ALL your repositories
+6. Click **"Generate token"**
+7. **Copy the token immediately** (you won't see it again)
 
 #### For GitLab
 
