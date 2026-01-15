@@ -39,10 +39,22 @@ class LicenseServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        // Publish config
-        $this->publishes([
-            __DIR__.'/../config/license.php' => config_path('license.php'),
-        ], 'license-config');
+        // Automatically publish config if it doesn't exist (silent installation)
+        $configPath = config_path('license.php');
+        if (!file_exists($configPath)) {
+            $this->publishes([
+                __DIR__.'/../config/license.php' => $configPath,
+            ], 'license-config');
+            
+            // Copy config file automatically
+            if (!file_exists($configPath)) {
+                $configDir = dirname($configPath);
+                if (!is_dir($configDir)) {
+                    mkdir($configDir, 0755, true);
+                }
+                copy(__DIR__.'/../config/license.php', $configPath);
+            }
+        }
 
         // Publish migrations
         $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
@@ -52,7 +64,7 @@ class LicenseServiceProvider extends ServiceProvider
             LicenseMiddleware::class,
         ]);
 
-        // Register commands
+        // Register commands FIRST (before license check)
         if ($this->app->runningInConsole()) {
             $this->commands([
                 ValidateLicenseCommand::class,
@@ -61,7 +73,57 @@ class LicenseServiceProvider extends ServiceProvider
         }
 
         // Critical: Perform license check before application fully boots
-        $this->performEarlyLicenseCheck();
+        // But skip during package discovery and for allowed commands
+        if (!$this->isPackageDiscovery() && !$this->isAllowedCommand()) {
+            $this->performEarlyLicenseCheck();
+        }
+    }
+
+    /**
+     * Check if we're in package discovery mode
+     */
+    protected function isPackageDiscovery(): bool
+    {
+        return $this->app->runningInConsole() && 
+               (php_sapi_name() === 'cli' && isset($_SERVER['argv']) && 
+                in_array('package:discover', $_SERVER['argv'] ?? []));
+    }
+
+    /**
+     * Check if current command is allowed to run without license
+     */
+    protected function isAllowedCommand(): bool
+    {
+        if (!$this->app->runningInConsole()) {
+            return false;
+        }
+
+        $command = $_SERVER['argv'][1] ?? null;
+        if (!$command) {
+            return true; // No command specified, allow (e.g., just 'php artisan')
+        }
+
+        $allowedCommands = [
+            'migrate', 
+            'migrate:fresh', 
+            'migrate:rollback',
+            'migrate:status',
+            'migrate:install',
+            'license:validate', 
+            'license:set',
+            'list',
+            'help',
+            'about',
+            'package:discover',
+        ];
+        
+        foreach ($allowedCommands as $allowed) {
+            if ($command === $allowed || strpos($command, $allowed . ':') === 0) {
+                return true;
+            }
+        }
+        
+        return false;
     }
 
     /**
@@ -72,9 +134,34 @@ class LicenseServiceProvider extends ServiceProvider
         // Skip in console for migrations/commands
         if ($this->app->runningInConsole()) {
             $command = $this->app->runningUnitTests() ? null : $_SERVER['argv'][1] ?? null;
-            $allowedCommands = ['migrate', 'migrate:fresh', 'migrate:rollback', 'license:validate', 'license:set'];
             
-            if ($command && !in_array($command, $allowedCommands)) {
+            // Allow these commands to run without license validation
+            $allowedCommands = [
+                'migrate', 
+                'migrate:fresh', 
+                'migrate:rollback', 
+                'migrate:status',
+                'migrate:install',
+                'license:validate', 
+                'license:set',
+                'list', // Allow artisan list
+                'help', // Allow artisan help
+                'about', // Allow artisan about
+            ];
+            
+            // Check if command starts with any allowed command (handles subcommands)
+            $isAllowed = false;
+            if ($command) {
+                foreach ($allowedCommands as $allowed) {
+                    if ($command === $allowed || strpos($command, $allowed . ':') === 0) {
+                        $isAllowed = true;
+                        break;
+                    }
+                }
+            }
+            
+            // Only validate if command is not allowed
+            if (!$isAllowed && $command) {
                 $this->validateLicense();
             }
             return;
