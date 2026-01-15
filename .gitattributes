@@ -1,0 +1,18 @@
+# Exclude documentation and development files from Composer package
+# These files will remain in the Git repository but won't be installed in vendor/
+
+# Documentation files
+*.md export-ignore
+!README.md export-ignore
+
+# Development scripts
+QUICK_PUBLISH.sh export-ignore
+QUICK_PUBLISH.bat export-ignore
+
+# Keep only essential files in the installed package:
+# - src/ (source code)
+# - config/ (configuration)
+# - database/ (migrations)
+# - composer.json
+# - README.md (main readme)
+
