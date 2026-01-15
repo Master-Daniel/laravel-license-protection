@@ -9,21 +9,9 @@ cd backend
 composer dump-autoload
 ```
 
-### 2. Copy Configuration (Optional)
+### 2. Run Migrations
 
-The package works out of the box! Configuration is optional and only needed if you want to customize cache TTL:
-
-```bash
-php artisan vendor:publish --tag=license-config
-```
-
-Then optionally add to `.env`:
-
-```env
-LICENSE_CACHE_TTL=3600  # Optional: Cache TTL in seconds (default: 3600)
-```
-
-### 3. Run Migrations
+**Note**: The configuration file (`config/license.php`) is automatically created when the package boots. No manual configuration needed!
 
 ```bash
 php artisan migrate
@@ -31,7 +19,7 @@ php artisan migrate
 
 This will create the `licenses` table with domain and IP binding support.
 
-### 4. Set Your License Key
+### 3. Set Your License Key
 
 The license will be automatically bound to your domain and server IP:
 
@@ -50,7 +38,7 @@ The command will:
 - One license = One installation (domain + IP combination)
 - Licenses do not expire but are restricted to the bound domain/IP
 
-### 5. Validate License
+### 4. Validate License
 
 ```bash
 php artisan license:validate
