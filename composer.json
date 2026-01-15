@@ -27,6 +27,15 @@
             "LicenseProtection\\": "src/"
         }
     },
+    "archive": {
+        "exclude": [
+            "*.md",
+            "!README.md",
+            "QUICK_PUBLISH.*",
+            ".gitattributes",
+            ".gitignore"
+        ]
+    },
     "extra": {
         "laravel": {
             "providers": [
