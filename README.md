@@ -6,13 +6,15 @@ A bulletproof license protection package for Laravel applications that ensures y
 
 **This package must be published to a Git repository and installed via Composer to be secure.**
 
-Currently, the package is in `packages/` directory which can be easily deleted. To make it secure:
+Currently, the package is in `license-protection/` directory. To make it secure:
 
 1. **Publish to Git repository** (see `PUBLISHING.md` or `MIGRATION_GUIDE.md`)
 2. **Install via Composer** - Package will go to `vendor/` directory
 3. **Remove local package** - After successful installation
 
 **Quick Start**: See `PACKAGE_PUBLISHING_INSTRUCTIONS.md` in the backend root directory.
+
+**Note**: Documentation files (except README.md) are excluded from the Composer package installation using `.gitattributes` to keep the installed package clean. Only essential files (`src/`, `config/`, `database/`, `composer.json`, `README.md`) are installed.
 
 ## Features
 
