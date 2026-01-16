@@ -117,12 +117,18 @@ class LicenseValidator
                 return null;
             }
 
+            // Check if expires_at column exists (for backward compatibility)
+            $expiresAt = null;
+            if (DB::getSchemaBuilder()->hasColumn('licenses', 'expires_at')) {
+                $expiresAt = $license->expires_at ?? null;
+            }
+
             return [
                 'license_key' => decrypt($license->license_key),
                 'domain' => $license->domain,
                 'server_ip' => $license->server_ip,
                 'id' => $license->id,
-                'expires_at' => $license->expires_at,
+                'expires_at' => $expiresAt,
             ];
         } catch (Exception $e) {
             Log::error('Error retrieving license data: ' . $e->getMessage());
