@@ -115,6 +115,7 @@ class LicenseServiceProvider extends ServiceProvider
             'help',
             'about',
             'package:discover',
+            'vendor:publish',
         ];
         
         foreach ($allowedCommands as $allowed) {
