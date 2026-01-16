@@ -55,10 +55,23 @@ class LicenseConfig
 
     /**
      * Cache TTL for validation results (in seconds)
+     * Valid results are cached permanently (until manually cleared)
+     * Invalid results are cached shorter to allow quick recovery
      */
     public static function getCacheTtl(): int
     {
-        return 3600; // 1 hour
+        // Return a very large number (essentially permanent)
+        // Cache will persist until manually cleared or license is changed
+        return 31536000 * 10; // 10 years (effectively permanent)
+    }
+
+    /**
+     * Cache TTL for invalid validation results (in seconds)
+     * Shorter cache for failures to allow quick recovery
+     */
+    public static function getInvalidCacheTtl(): int
+    {
+        return 300; // 5 minutes for invalid licenses (allows quick retry)
     }
 }
 
