@@ -31,22 +31,38 @@ class LicenseValidator
     public function isValid(): bool
     {
         try {
-            // Check cache first
-            $cached = Cache::get($this->cacheKey);
-            if ($cached !== null) {
-                return (bool) $cached;
-            }
-
-            // Get license data from database
+            // Get license data from database first to check expiration
             $licenseData = $this->getLicenseData();
             
             if (empty($licenseData)) {
+                Log::warning('No license data found in database');
                 $this->cacheResult(false);
                 return false;
             }
 
+            // Check if license has expired (even if cached)
+            if (!$this->checkExpiration($licenseData)) {
+                Log::warning('License has expired');
+                // Clear cache if expired
+                Cache::forget($this->cacheKey);
+                $this->cacheResult(false);
+                return false;
+            }
+
+            // Check cache - if we have a valid cached result and license hasn't expired, use it
+            $cached = Cache::get($this->cacheKey);
+            if ($cached === true) {
+                // Valid license cached permanently - return immediately
+                // No need to revalidate unless cache is manually cleared or license expires
+                return true;
+            }
+            
+            // If cached as false, we still need to revalidate (might have been fixed)
+            // But we'll use a shorter cache for failures
+
             // Validate domain and IP binding
             if (!$this->validateDomainAndIp($licenseData)) {
+                Log::warning('Domain or IP validation failed');
                 $this->cacheResult(false);
                 return false;
             }
@@ -54,12 +70,29 @@ class LicenseValidator
             // Validate with remote server
             $isValid = $this->validateWithServer($licenseData);
             
-            // Cache result
+            // Cache result (permanent for valid, short for invalid)
             $this->cacheResult($isValid);
+            
+            if (!$isValid) {
+                Log::warning('License validation with server failed');
+            } else {
+                Log::info('License validated successfully and cached permanently');
+            }
             
             return $isValid;
         } catch (Exception $e) {
-            Log::error('License validation error: ' . $e->getMessage());
+            Log::error('License validation error: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            // If we have a cached valid result, use it even if current validation fails
+            // This prevents blocking the app due to temporary network issues
+            $cached = Cache::get($this->cacheKey);
+            if ($cached === true) {
+                Log::warning('Using cached valid license due to validation error');
+                return true;
+            }
+            
             return false;
         }
     }
@@ -89,6 +122,7 @@ class LicenseValidator
                 'domain' => $license->domain,
                 'server_ip' => $license->server_ip,
                 'id' => $license->id,
+                'expires_at' => $license->expires_at,
             ];
         } catch (Exception $e) {
             Log::error('Error retrieving license data: ' . $e->getMessage());
@@ -114,6 +148,33 @@ class LicenseValidator
         if ($licenseData['server_ip'] !== $currentIp) {
             Log::warning("License IP mismatch. Expected: {$licenseData['server_ip']}, Got: {$currentIp}");
             return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Check if license has expired
+     */
+    protected function checkExpiration(array $licenseData): bool
+    {
+        if (empty($licenseData['expires_at'])) {
+            // No expiration date set - license is valid (backward compatibility)
+            return true;
+        }
+
+        $expiresAt = \Carbon\Carbon::parse($licenseData['expires_at']);
+        $now = now();
+
+        if ($now->greaterThan($expiresAt)) {
+            Log::warning("License expired on {$expiresAt->format('Y-m-d H:i:s')}");
+            return false;
+        }
+
+        // Log days remaining for monitoring
+        $daysRemaining = $now->diffInDays($expiresAt, false);
+        if ($daysRemaining <= 30) {
+            Log::warning("License expires in {$daysRemaining} days on {$expiresAt->format('Y-m-d H:i:s')}");
         }
 
         return true;
@@ -273,10 +334,21 @@ class LicenseValidator
 
     /**
      * Cache validation result
+     * Valid licenses are cached permanently, invalid ones for a short time
      */
     protected function cacheResult(bool $isValid): void
     {
-        Cache::put($this->cacheKey, $isValid, $this->cacheTtl);
+        if ($isValid) {
+            // Cache valid licenses permanently (until manually cleared)
+            // Use a very long TTL (effectively permanent)
+            Cache::put($this->cacheKey, true, LicenseConfig::getCacheTtl());
+            
+            // Also store a timestamp to track when it was validated
+            Cache::put($this->cacheKey . '_validated_at', now()->toIso8601String(), LicenseConfig::getCacheTtl());
+        } else {
+            // Cache invalid results for a short time to allow quick retry
+            Cache::put($this->cacheKey, false, LicenseConfig::getInvalidCacheTtl());
+        }
     }
 
     /**
