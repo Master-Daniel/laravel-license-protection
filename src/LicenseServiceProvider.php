@@ -116,6 +116,7 @@ class LicenseServiceProvider extends ServiceProvider
             'about',
             'package:discover',
             'vendor:publish',
+            'tinker',
         ];
         
         foreach ($allowedCommands as $allowed) {
@@ -149,6 +150,7 @@ class LicenseServiceProvider extends ServiceProvider
                 'help', // Allow artisan help
                 'about', // Allow artisan about
                 'vendor:publish', // Allow vendor publish
+                'tinker', // Allow tinker
             ];
             
             // Check if command starts with any allowed command (handles subcommands)
