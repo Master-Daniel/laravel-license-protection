@@ -54,23 +54,37 @@ class SetLicenseKeyCommand extends Command
             // Calculate expiration date (365 days from now)
             $expiresAt = now()->addDays(365);
 
-            // Insert new license with domain and IP binding
-            DB::table('licenses')->insert([
+            // Prepare license data
+            $licenseData = [
                 'license_key' => encrypt($licenseKey),
                 'domain' => $domain,
                 'server_ip' => $serverIp,
                 'is_active' => true,
-                'expires_at' => $expiresAt,
                 'created_at' => now(),
                 'updated_at' => now(),
                 'last_validated_at' => null,
                 'validation_count' => 0,
-            ]);
+            ];
+
+            // Only add expires_at if column exists (for backward compatibility)
+            if (DB::getSchemaBuilder()->hasColumn('licenses', 'expires_at')) {
+                $licenseData['expires_at'] = $expiresAt;
+            }
+
+            // Insert new license with domain and IP binding
+            DB::table('licenses')->insert($licenseData);
 
             $this->newLine();
             $this->info('✓ License key set successfully!');
             $this->info('✓ License is permanently bound to this domain and IP.');
-            $this->info('✓ License expires on: ' . $expiresAt->format('Y-m-d H:i:s') . ' (' . $expiresAt->diffForHumans() . ')');
+            
+            // Only show expiration if column exists
+            if (DB::getSchemaBuilder()->hasColumn('licenses', 'expires_at')) {
+                $this->info('✓ License expires on: ' . $expiresAt->format('Y-m-d H:i:s') . ' (' . $expiresAt->diffForHumans() . ')');
+            } else {
+                $this->warn('⚠️  Note: Run "php artisan migrate" to enable 365-day expiration feature.');
+            }
+            
             $this->info('✓ Validation cache cleared - license will be validated automatically.');
             $this->newLine();
             $this->info('Run "php artisan license:validate" to verify the license.');
