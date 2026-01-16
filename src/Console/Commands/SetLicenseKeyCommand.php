@@ -4,6 +4,7 @@ namespace LicenseProtection\Console\Commands;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 
 class SetLicenseKeyCommand extends Command
 {
@@ -43,8 +44,15 @@ class SetLicenseKeyCommand extends Command
                 return Command::SUCCESS;
             }
 
+            // Clear license validation cache (force revalidation with new license)
+            Cache::forget('license_validation');
+            Cache::forget('license_validation_validated_at');
+
             // Deactivate all existing licenses
             DB::table('licenses')->update(['is_active' => false]);
+
+            // Calculate expiration date (365 days from now)
+            $expiresAt = now()->addDays(365);
 
             // Insert new license with domain and IP binding
             DB::table('licenses')->insert([
@@ -52,6 +60,7 @@ class SetLicenseKeyCommand extends Command
                 'domain' => $domain,
                 'server_ip' => $serverIp,
                 'is_active' => true,
+                'expires_at' => $expiresAt,
                 'created_at' => now(),
                 'updated_at' => now(),
                 'last_validated_at' => null,
@@ -61,6 +70,8 @@ class SetLicenseKeyCommand extends Command
             $this->newLine();
             $this->info('✓ License key set successfully!');
             $this->info('✓ License is permanently bound to this domain and IP.');
+            $this->info('✓ License expires on: ' . $expiresAt->format('Y-m-d H:i:s') . ' (' . $expiresAt->diffForHumans() . ')');
+            $this->info('✓ Validation cache cleared - license will be validated automatically.');
             $this->newLine();
             $this->info('Run "php artisan license:validate" to verify the license.');
 
