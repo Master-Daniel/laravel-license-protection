@@ -148,6 +148,7 @@ class LicenseServiceProvider extends ServiceProvider
                 'list', // Allow artisan list
                 'help', // Allow artisan help
                 'about', // Allow artisan about
+                'vendor:publish', // Allow vendor publish
             ];
             
             // Check if command starts with any allowed command (handles subcommands)
