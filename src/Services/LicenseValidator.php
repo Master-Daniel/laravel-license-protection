@@ -144,23 +144,46 @@ class LicenseValidator
         $ip = null;
 
         // Method 1: From $_SERVER
-        if (isset($_SERVER['SERVER_ADDR'])) {
+        if (isset($_SERVER['SERVER_ADDR']) && $_SERVER['SERVER_ADDR'] !== '127.0.0.1') {
             $ip = $_SERVER['SERVER_ADDR'];
         }
-        // Method 2: From gethostbyname
-        elseif (function_exists('gethostbyname')) {
-            $hostname = gethostname();
-            if ($hostname) {
-                $ip = gethostbyname($hostname);
+        // Method 2: Try to get from network interfaces (for console commands)
+        elseif (app()->runningInConsole()) {
+            // Try to get IP from network interfaces
+            if (function_exists('shell_exec')) {
+                // Try Linux/Unix method
+                $commands = [
+                    "hostname -I | awk '{print $1}'",
+                    "ip route get 8.8.8.8 | awk '{print $7}' | head -1",
+                    "ifconfig | grep 'inet ' | grep -v '127.0.0.1' | awk '{print $2}' | head -1",
+                ];
+                
+                foreach ($commands as $cmd) {
+                    $result = trim(shell_exec($cmd . ' 2>/dev/null'));
+                    if (!empty($result) && filter_var($result, FILTER_VALIDATE_IP) && $result !== '127.0.0.1') {
+                        $ip = $result;
+                        break;
+                    }
+                }
             }
         }
-        // Method 3: From request
-        elseif (app()->runningInConsole() === false) {
+        // Method 3: From gethostbyname
+        if (empty($ip) && function_exists('gethostbyname')) {
+            $hostname = gethostname();
+            if ($hostname) {
+                $resolved = gethostbyname($hostname);
+                if ($resolved !== $hostname && $resolved !== '127.0.0.1') {
+                    $ip = $resolved;
+                }
+            }
+        }
+        // Method 4: From request (web only)
+        if (empty($ip) && !app()->runningInConsole() && request()->server('SERVER_ADDR')) {
             $ip = request()->server('SERVER_ADDR');
         }
 
-        // Fallback to localhost
-        if (empty($ip) || $ip === $hostname) {
+        // Fallback to localhost only if we really can't find anything
+        if (empty($ip) || $ip === ($hostname ?? '')) {
             $ip = '127.0.0.1';
         }
 
