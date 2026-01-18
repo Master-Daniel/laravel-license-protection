@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Cache;
 
 class SetLicenseKeyCommand extends Command
 {
-    protected $signature = 'license:set {key : The license key to set}';
+    protected $signature = 'license:set {key : The license key to set} {--ip= : Manually specify the server IP address}';
     protected $description = 'Set the license key for the application (automatically binds to current domain and IP)';
 
     public function handle(): int
@@ -29,7 +29,18 @@ class SetLicenseKeyCommand extends Command
 
             // Get current domain and IP
             $domain = $this->getCurrentDomain();
-            $serverIp = $this->getCurrentServerIp();
+            
+            // Allow manual IP override via --ip option
+            $serverIp = $this->option('ip');
+            if (!$serverIp) {
+                $serverIp = $this->getCurrentServerIp();
+            } else {
+                // Validate manually provided IP
+                if (!filter_var($serverIp, FILTER_VALIDATE_IP)) {
+                    $this->error('Invalid IP address provided. Please provide a valid IP address.');
+                    return Command::FAILURE;
+                }
+            }
 
             $this->info("Detected Domain: {$domain}");
             $this->info("Detected Server IP: {$serverIp}");
@@ -123,20 +134,75 @@ class SetLicenseKeyCommand extends Command
         // Try multiple methods to get server IP
         $ip = null;
 
-        // Method 1: From $_SERVER
-        if (isset($_SERVER['SERVER_ADDR'])) {
-            $ip = $_SERVER['SERVER_ADDR'];
-        }
-        // Method 2: From gethostbyname
-        elseif (function_exists('gethostbyname')) {
-            $hostname = gethostname();
-            if ($hostname) {
-                $ip = gethostbyname($hostname);
+        // Method 1: Try to get IP from domain name (most reliable for production)
+        $domain = $this->getCurrentDomain();
+        if ($domain && $domain !== 'localhost') {
+            $resolvedIp = gethostbyname($domain);
+            if ($resolvedIp && $resolvedIp !== $domain && filter_var($resolvedIp, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
+                $ip = $resolvedIp;
             }
         }
 
-        // Fallback to localhost
-        if (empty($ip) || $ip === ($hostname ?? '')) {
+        // Method 2: Try shell command to get primary IP (Linux/Unix)
+        if (empty($ip) && function_exists('shell_exec')) {
+            // Try hostname -I (Linux)
+            $shellIp = trim(shell_exec('hostname -I 2>/dev/null'));
+            if ($shellIp && filter_var($shellIp, FILTER_VALIDATE_IP)) {
+                // Get first IP if multiple
+                $ips = explode(' ', $shellIp);
+                foreach ($ips as $candidateIp) {
+                    if (filter_var($candidateIp, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
+                        $ip = $candidateIp;
+                        break;
+                    }
+                }
+                // If no public IP found, use first private IP
+                if (empty($ip) && !empty($ips[0])) {
+                    $ip = trim($ips[0]);
+                }
+            }
+        }
+
+        // Method 3: Try ip command (Linux)
+        if (empty($ip) && function_exists('shell_exec')) {
+            $ipCommand = trim(shell_exec("ip -4 addr show | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | grep -v '127.0.0.1' | head -1 2>/dev/null"));
+            if ($ipCommand && filter_var($ipCommand, FILTER_VALIDATE_IP)) {
+                $ip = $ipCommand;
+            }
+        }
+
+        // Method 4: From $_SERVER (may be localhost in CLI)
+        if (empty($ip) && isset($_SERVER['SERVER_ADDR']) && $_SERVER['SERVER_ADDR'] !== '127.0.0.1') {
+            $ip = $_SERVER['SERVER_ADDR'];
+        }
+
+        // Method 5: From gethostbyname with hostname
+        if (empty($ip) && function_exists('gethostbyname')) {
+            $hostname = gethostname();
+            if ($hostname) {
+                $hostnameIp = gethostbyname($hostname);
+                if ($hostnameIp && $hostnameIp !== $hostname && $hostnameIp !== '127.0.0.1') {
+                    $ip = $hostnameIp;
+                }
+            }
+        }
+
+        // Method 6: Try external service as last resort (only if domain is not localhost)
+        if (empty($ip) && $domain && $domain !== 'localhost') {
+            try {
+                $externalIp = @file_get_contents('https://api.ipify.org?format=text');
+                if ($externalIp && filter_var(trim($externalIp), FILTER_VALIDATE_IP)) {
+                    $ip = trim($externalIp);
+                }
+            } catch (\Exception $e) {
+                // Ignore external service failures
+            }
+        }
+
+        // Final fallback to localhost (but warn user)
+        if (empty($ip) || $ip === '127.0.0.1') {
+            $this->warn('⚠️  Could not detect server IP automatically. Using 127.0.0.1.');
+            $this->warn('   You may want to manually specify the server IP.');
             $ip = '127.0.0.1';
         }
 
