@@ -21,6 +21,13 @@ class SetLicenseKeyCommand extends Command
         }
 
         try {
+            // Ensure application encryption key is set before trying to encrypt the license key
+            if (empty(config('app.key'))) {
+                $this->error('No application encryption key has been specified.');
+                $this->error('Please run "php artisan key:generate" first, then run this command again.');
+                return Command::FAILURE;
+            }
+
             // Ensure licenses table exists
             if (!DB::getSchemaBuilder()->hasTable('licenses')) {
                 $this->error('Licenses table does not exist. Please run migrations first.');
