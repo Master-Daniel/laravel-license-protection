@@ -207,6 +207,13 @@ class LicenseValidator
      */
     protected function getCurrentServerIp(): string
     {
+        // Highest priority: explicit override from config/env to handle proxies/containers
+        // You can set LICENSE_SERVER_IP in .env to force a specific IP (e.g., public server IP)
+        $overrideIp = env('LICENSE_SERVER_IP');
+        if (!empty($overrideIp) && filter_var($overrideIp, FILTER_VALIDATE_IP)) {
+            return $overrideIp;
+        }
+
         // Try multiple methods to get server IP
         $ip = null;
 
