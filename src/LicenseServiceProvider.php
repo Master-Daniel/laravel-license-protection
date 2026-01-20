@@ -94,6 +94,12 @@ class LicenseServiceProvider extends ServiceProvider
      */
     protected function isAllowedCommand(): bool
     {
+        // If application encryption key is not set yet, skip ALL license checks for console
+        // This allows running key:generate and initial setup commands safely.
+        if (empty(config('app.key'))) {
+            return true;
+        }
+
         if (!$this->app->runningInConsole()) {
             return false;
         }
@@ -104,6 +110,7 @@ class LicenseServiceProvider extends ServiceProvider
         }
 
         $allowedCommands = [
+            'key:generate',
             'migrate', 
             'migrate:fresh', 
             'migrate:rollback',
@@ -137,10 +144,16 @@ class LicenseServiceProvider extends ServiceProvider
     {
         // Skip in console for migrations/commands
         if ($this->app->runningInConsole()) {
+            // If APP_KEY is not set yet, skip license validation entirely for console
+            if (empty(config('app.key'))) {
+                return;
+            }
+
             $command = $this->app->runningUnitTests() ? null : $_SERVER['argv'][1] ?? null;
             
             // Allow these commands to run without license validation
             $allowedCommands = [
+                'key:generate',
                 'migrate', 
                 'migrate:fresh', 
                 'migrate:rollback', 
